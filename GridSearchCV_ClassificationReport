@@ -1,0 +1,107 @@
+"""Build a sentiment analysis / polarity model
+ 
+Sentiment analysis can be casted as a binary text classification problem,
+that is fitting a linear classifier on features extracted from the text
+of the user messages so as to guess wether the opinion of the author is
+positive or negative.
+ 
+In this examples we will use a movie review dataset.
+ 
+"""
+# Author: Olivier Grisel <olivier.grisel@ensta.org>
+# License: Simplified BSD
+ 
+import sys
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.svm import LinearSVC
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.datasets import load_files
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+import pandas as pd
+from sklearn.linear_model import SGDClassifier
+ 
+ 
+if __name__ == "__main__":
+    n_iter_search = 100
+    # NOTE: we put the following in a 'if __name__ == "__main__"' protected
+    # block to be able to use a multi-core grid search that also works under
+    # Windows, see: http://docs.python.org/library/multiprocessing.html#windows
+    # The multiprocessing module is used as the backend of joblib.Parallel
+    # that is used when n_jobs != 1 in GridSearchCV
+ 
+    # the training data folder must be passed as first argument
+    train = pd.read_csv('../input/train.csv', nrows  = 100000).fillna(' ')
+    
+    train['comment_text'] = train['comment_text'].str.replace("\n", "")
+    X = train['comment_text']
+    Y = train['toxic']
+ 
+    # split the dataset in training and test set:
+    docs_train, docs_test, y_train, y_test = train_test_split(X, Y, test_size=0.25, random_state=None)
+    
+    
+ 
+    # TASK: Build a vectorizer / classifier pipeline that filters out tokens
+    # that are too rare or too frequent
+    pipeline = Pipeline([
+        ('vect', TfidfVectorizer()),
+        ('clf',  SGDClassifier(max_iter=1000, tol=1e-3)),
+    ])
+    
+    print(pipeline.get_params().keys())
+
+ 
+    # TASK: Build a grid search to find out whether unigrams or bigrams are
+    # more useful.
+    # Fit the pipeline on the training set using grid search for the parameters
+    parameters = {
+        'vect__max_df': [0.9, 0.8, 0.95],
+        'vect__min_df' : [3, 4,0.1, 0.2],
+        'vect__max_features': [None,  20000,30000], 
+        'vect__ngram_range': [(1, 1), (1, 2)],
+        'vect__norm':['l1', 'l2'],
+        'clf__alpha': (0.00001, 0.00001),
+        'clf__penalty': ('l2', 'elasticnet'),
+    }
+    #grid_search = GridSearchCV(pipeline, parameters, n_iter=n_iter_search, n_jobs=-1, verbose =100)
+    grid_search = RandomizedSearchCV(pipeline, parameters, n_iter=n_iter_search, n_jobs=-1, verbose =100)
+    grid_search.fit(docs_train, y_train)
+ 
+    # TASK: print the mean and std for each candidate along with the parameter
+    # settings for all the candidates explored by grid search.
+    
+    print("Best score: %0.3f" % grid_search.best_score_)
+    print("Best parameters set:")
+    best_parameters = grid_search.best_estimator_.get_params()
+    for param_name in sorted(parameters.keys()):
+        print("\t%s: %r" % (param_name, best_parameters[param_name]))  
+        
+    n_candidates = len(grid_search.cv_results_['params'])
+    for i in range(n_candidates):
+        print(i, 'params - %s; mean - %0.2f; std - %0.2f'
+                 % (grid_search.cv_results_['params'][i],
+                    grid_search.cv_results_['mean_test_score'][i],
+                    grid_search.cv_results_['std_test_score'][i]))
+ 
+    # TASK: Predict the outcome on the testing set and store it in a variable
+    # named y_predicted
+    y_predicted = grid_search.predict(docs_test)
+ 
+    # Print the classification report
+    print(metrics.classification_report(y_test, y_predicted))
+ 
+    # Print and plot the confusion matrix
+    cm = metrics.confusion_matrix(y_test, y_predicted)
+    print(cm)
+    
+    for input_features, prediction, actual in zip(docs_test[:10].index,
+                                              grid_search.predict(docs_test[:10]),
+                                              y_test[:10]):
+        print("{}\t-->\t{}\t(Actual: {})".format(input_features, prediction, actual))
+ 
+    # import matplotlib.pyplot as plt
+    # plt.matshow(cm)
+    # plt.show()
