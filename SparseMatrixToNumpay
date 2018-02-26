@@ -1,0 +1,7 @@
+How do I transform a “SciPy sparse matrix” to a “NumPy matrix”?
+
+
+The scipy.sparse.*_matrix has several useful methods, for example, if a is e.g. scipy.sparse.csr_matrix:
+
+a.todense() or a.M - Return a dense matrix representation of this matrix. (numpy.matrix)
+a.toarray() or a.A - Return a dense ndarray representation of this matrix. (numpy.array)
