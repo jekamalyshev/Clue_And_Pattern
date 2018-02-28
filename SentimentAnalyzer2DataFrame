@@ -1,3 +1,4 @@
+# read doc http://www.nltk.org/howto/sentiment.html
 import nltk
 from nltk.classify import NaiveBayesClassifier
 from nltk.corpus import subjectivity
