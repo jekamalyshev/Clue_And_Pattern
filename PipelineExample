@@ -1,0 +1,31 @@
+# Preprocess the numeric data: get_numeric_data
+#-------------------------------------------------------------    
+get_numeric_data = FunctionTransformer(lambda a: a[['len_character']], validate=False)
+get_text_data = FunctionTransformer(lambda a: a['comment_text'], validate=False)
+
+print(get_text_data.fit_transform(X_train).shape)
+print(get_numeric_data.fit_transform(X_train).shape)
+
+pl = Pipeline([
+        ('union', FeatureUnion(                      #unites both text and numeric arrays into one array
+            transformer_list = [
+                ('numeric_features', Pipeline([
+                    ('selector', get_numeric_data)
+                ])),
+                ('text_features', Pipeline([
+                    ('selector', get_text_data),
+                    ('vectorizer', TfidfVectorizer(
+                                                    stop_words='english',
+                                                    strip_accents='unicode',
+                                                    token_pattern=r'\w{2,}',
+                                                    analyzer='word',
+                                                    ngram_range=(1, 1),
+                                                    min_df=5))
+                ]))
+             ]
+        )), #right here is where we would put interaction terms preprocessing such as PolynomialFeatures
+            #(right here is where we would put a scaler if we needed one)
+        ('clf', OneVsRestClassifier(LogisticRegression())) 
+    ])
+#-------------------------------------------------------------    
+    
